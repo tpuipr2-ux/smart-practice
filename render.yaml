@@ -1,5 +1,5 @@
 services:
-  - type: postgres
+  - type: postgresql
     name: sp-postgres
     version: 15
     databaseName: smart_practice
