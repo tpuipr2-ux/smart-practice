@@ -1,9 +1,8 @@
 services:
-  # PostgreSQL Database
-  - type: psql
-    name: smart-practice-db
-    plan: free
-    ipAllowList: []
+    databases:
+  - name: smart_practice_db
+    plan: free # или starter, в зависимости от ваших нужд
+    region: frankfurt # выберите регион, в котором будет ваше приложение
 
   # Backend API Service
   - type: web
