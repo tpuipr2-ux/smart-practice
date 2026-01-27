@@ -1,0 +1,85 @@
+services:
+  - type: postgres
+    name: sp-postgres
+    version: 15
+    databaseName: smart_practice
+    user: postgres
+    password: postgres
+    disk:
+      sizeGB: 1
+    envVars:
+      - key: POSTGRES_DB
+        value: smart_practice
+      - key: POSTGRES_USER
+        value: postgres
+      - key: POSTGRES_PASSWORD
+        value: postgres
+
+  - type: web
+    name: sp-backend
+    runtime: docker
+    dockerfile: ./backend/Dockerfile
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DB_HOST
+        fromService:
+          name: sp-postgres
+          type: postgres
+          property: host
+      - key: DB_PORT
+        fromService:
+          name: sp-postgres
+          type: postgres
+          property: port
+      - key: DB_NAME
+        value: smart_practice
+      - key: DB_USER
+        value: postgres
+      - key: DB_PASSWORD
+        value: postgres
+      - key: BOT_TOKEN
+        sync: false  # Установите в Render веб-интерфейсе
+      - key: ADMIN_TG_ID
+        sync: false
+      - key: WEB_APP_URL
+        sync: false
+      - key: PORT
+        value: 3001
+    volumes:
+      - source: ./backend/uploads
+        target: /app/uploads
+    dependsOn:
+      - sp-postgres
+    healthCheckPath: /health  # Добавьте эндпоинт /health в backend (опционально)
+
+  - type: web
+    name: sp-frontend
+    runtime: docker
+    dockerfile: ./frontend/Dockerfile
+    envVars:
+      - key: REACT_APP_API_URL
+        fromService:
+          name: sp-backend
+          type: web
+          property: host
+      - key: REACT_APP_BOT_USERNAME
+        sync: false
+    dependsOn:
+      - sp-backend
+
+  - type: web
+    name: sp-nginx
+    runtime: docker
+    dockerfile: ./nginx/Dockerfile  # Создайте Dockerfile для Nginx (см. ниже)
+    ports:
+      - 80
+      - 443
+    volumes:
+      - source: ./nginx.conf
+        target: /etc/nginx/nginx.conf
+      - source: ./backend/uploads
+        target: /var/www/uploads
+    dependsOn:
+      - sp-frontend
+      - sp-backend
