@@ -37,6 +37,11 @@ app.use('/api/companies', companyRoutes);
 app.use('/api/curator', curatorRoutes);
 app.use('/api/admin', adminRoutes);
 
+// Health check endpoint for Render
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 // Telegram Webhook
 app.use(`/bot${process.env.BOT_TOKEN}`, (req, res) => {
   bot.processUpdate(req.body);

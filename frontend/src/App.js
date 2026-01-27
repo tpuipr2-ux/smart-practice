@@ -16,6 +16,7 @@ import VacancyFeed from './pages/VacancyFeed';
 import MyApplications from './pages/MyApplications';
 import MyVacancies from './pages/MyVacancies';
 import CreateVacancy from './pages/CreateVacancy';
+import VacancyApplications from './pages/VacancyApplications';
 import Company from './pages/Company';
 import Archive from './pages/Archive';
 import Moderation from './pages/Moderation';
@@ -121,6 +122,7 @@ function App() {
                 <Route path="/vacancies" element={<MyVacancies />} />
                 <Route path="/vacancies/create" element={<CreateVacancy />} />
                 <Route path="/vacancies/edit/:id" element={<CreateVacancy />} />
+                <Route path="/vacancies/:id/applications" element={<VacancyApplications />} />
                 <Route path="/archive" element={<Archive />} />
               </>
             )}

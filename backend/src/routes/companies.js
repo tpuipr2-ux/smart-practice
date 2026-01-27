@@ -18,8 +18,42 @@ const upload = multer({ storage });
 // Apply auth middleware to all routes
 router.use(authMiddleware);
 
+// Create new company (for curators or partners without company)
+router.post('/', roleMiddleware(['partner', 'curator']), async (req, res) => {
+  try {
+    const user = req.user;
+    const { name, description } = req.body;
+    
+    if (!name) {
+      return res.status(400).json({ error: 'Company name is required' });
+    }
+    
+    // Generate invite code
+    const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    
+    // Create company
+    const result = await pool.query(
+      'INSERT INTO companies (name, description, invite_code) VALUES ($1, $2, $3) RETURNING *',
+      [name, description || '', inviteCode]
+    );
+    
+    const company = result.rows[0];
+    
+    // Update user's company_id
+    await pool.query(
+      'UPDATE users SET company_id = $1 WHERE id = $2',
+      [company.id, user.id]
+    );
+    
+    res.status(201).json({ company });
+  } catch (error) {
+    console.error('Error creating company:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Get user's company info
-router.get('/my', roleMiddleware(['partner']), async (req, res) => {
+router.get('/my', roleMiddleware(['partner', 'curator']), async (req, res) => {
   try {
     const user = req.user;
     
@@ -44,7 +78,7 @@ router.get('/my', roleMiddleware(['partner']), async (req, res) => {
 });
 
 // Update company info
-router.put('/my', roleMiddleware(['partner']), upload.single('logo'), async (req, res) => {
+router.put('/my', roleMiddleware(['partner', 'curator']), upload.single('logo'), async (req, res) => {
   try {
     const user = req.user;
     const { name, description } = req.body;

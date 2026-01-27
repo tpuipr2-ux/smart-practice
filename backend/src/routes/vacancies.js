@@ -140,8 +140,8 @@ router.get('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// Create vacancy (partner only)
-router.post('/', roleMiddleware(['partner']), upload.single('header'), async (req, res) => {
+// Create vacancy (partner or curator)
+router.post('/', roleMiddleware(['partner', 'curator']), upload.single('header'), async (req, res) => {
   try {
     const user = req.user;
     const { 
@@ -368,6 +368,118 @@ router.get('/partner/my', roleMiddleware(['partner']), async (req, res) => {
     res.json({ vacancies: result.rows });
   } catch (error) {
     console.error('Error getting partner vacancies:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Get applications for a vacancy (partner view - anonymized)
+router.get('/:id/applications', roleMiddleware(['partner', 'curator']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = req.user;
+    
+    // Check if user owns the vacancy or is curator/admin
+    const vacancyCheck = await pool.query(
+      'SELECT * FROM vacancies WHERE id = $1',
+      [id]
+    );
+    
+    if (vacancyCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Vacancy not found' });
+    }
+    
+    const vacancy = vacancyCheck.rows[0];
+    
+    // Only owner or curator/admin can view applications
+    if (user.role === 'partner' && vacancy.partner_id !== user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    // Get anonymized applications
+    const result = await pool.query(`
+      SELECT 
+        a.id,
+        a.created_at as applied_at,
+        u.course,
+        m.name as major_name,
+        COUNT(s.id) as verified_skills_count
+      FROM applications a
+      JOIN users u ON a.student_id = u.id
+      LEFT JOIN majors m ON u.major_id = m.id
+      LEFT JOIN skills s ON u.id = s.user_id AND s.is_verified = true
+      WHERE a.vacancy_id = $1
+      GROUP BY a.id, a.created_at, u.course, m.name
+      ORDER BY a.created_at DESC
+    `, [id]);
+    
+    res.json({ 
+      applications: result.rows,
+      total_count: result.rows.length,
+      vacancy_title: vacancy.title
+    });
+  } catch (error) {
+    console.error('Error getting applications:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Request export of student data
+router.post('/:id/export-request', roleMiddleware(['partner', 'curator']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = req.user;
+    
+    // Check if vacancy exists and user has access
+    const vacancyResult = await pool.query(
+      'SELECT * FROM vacancies WHERE id = $1',
+      [id]
+    );
+    
+    if (vacancyResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Vacancy not found' });
+    }
+    
+    const vacancy = vacancyResult.rows[0];
+    
+    // Only owner or curator can request export
+    if (user.role === 'partner' && vacancy.partner_id !== user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    // Check if request already exists
+    const existingResult = await pool.query(
+      'SELECT * FROM export_requests WHERE vacancy_id = $1 AND status = $2',
+      [id, 'pending']
+    );
+    
+    if (existingResult.rows.length > 0) {
+      return res.status(400).json({ error: 'Export request already pending' });
+    }
+    
+    // Create export request
+    await pool.query(
+      'INSERT INTO export_requests (vacancy_id, partner_id, status) VALUES ($1, $2, $3)',
+      [id, vacancy.partner_id, 'pending']
+    );
+    
+    // Notify curators
+    const curatorsResult = await pool.query(
+      'SELECT telegram_id FROM users WHERE role = $1 OR role = $2',
+      ['curator', 'admin']
+    );
+    
+    for (const curator of curatorsResult.rows) {
+      if (curator.telegram_id) {
+        bot.sendMessage(curator.telegram_id, 
+          `📧 Партнер запрашивает выгрузку данных по вакансии "${vacancy.title}"\n\n` +
+          "Проверьте раздел 'Запросы на выгрузку'"
+        );
+      }
+    }
+    
+    res.json({ message: 'Export request created' });
+  } catch (error) {
+    console.error('Error creating export request:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });

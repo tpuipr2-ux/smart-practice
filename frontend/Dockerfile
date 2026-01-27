@@ -24,8 +24,11 @@ COPY --from=build /app/build /usr/share/nginx/html
 # Copy nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Expose port
-EXPOSE 80
+# Update nginx config to use Render's PORT
+RUN sed -i 's/listen 80;/listen 10000;/g' /etc/nginx/conf.d/default.conf
+
+# Expose port (Render uses PORT env var)
+EXPOSE 10000
 
 # Start nginx
 CMD ["nginx", "-g", "daemon off;"]

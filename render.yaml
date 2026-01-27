@@ -1,85 +1,66 @@
 services:
-  - type: postgresql
-    name: sp-postgres
-    version: 15
-    databaseName: smart_practice
-    user: postgres
-    password: postgres
-    disk:
-      sizeGB: 1
-    envVars:
-      - key: POSTGRES_DB
-        value: smart_practice
-      - key: POSTGRES_USER
-        value: postgres
-      - key: POSTGRES_PASSWORD
-        value: postgres
+  # PostgreSQL Database
+  - type: psql
+    name: smart-practice-db
+    plan: free
+    ipAllowList: []
 
+  # Backend API Service
   - type: web
-    name: sp-backend
+    name: smart-practice-api
     runtime: docker
-    dockerfile: ./backend/Dockerfile
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: 10000
       - key: DB_HOST
-        fromService:
-          name: sp-postgres
-          type: postgres
+        fromDatabase:
+          name: smart-practice-db
           property: host
       - key: DB_PORT
-        fromService:
-          name: sp-postgres
-          type: postgres
+        fromDatabase:
+          name: smart-practice-db
           property: port
       - key: DB_NAME
-        value: smart_practice
+        fromDatabase:
+          name: smart-practice-db
+          property: database
       - key: DB_USER
-        value: postgres
+        fromDatabase:
+          name: smart-practice-db
+          property: user
       - key: DB_PASSWORD
-        value: postgres
+        fromDatabase:
+          name: smart-practice-db
+          property: password
       - key: BOT_TOKEN
-        sync: false  # Установите в Render веб-интерфейсе
+        sync: false
+      - key: BOT_USERNAME
+        sync: false
       - key: ADMIN_TG_ID
         sync: false
       - key: WEB_APP_URL
         sync: false
-      - key: PORT
-        value: 3001
-    volumes:
-      - source: ./backend/uploads
-        target: /app/uploads
-    dependsOn:
-      - sp-postgres
-    healthCheckPath: /health  # Добавьте эндпоинт /health в backend (опционально)
+      - key: REACT_APP_API_URL
+        sync: false
+    healthCheckPath: /api/health
 
+  # Frontend Static Site
   - type: web
-    name: sp-frontend
+    name: smart-practice-app
     runtime: docker
-    dockerfile: ./frontend/Dockerfile
+    plan: free
+    dockerfilePath: ./frontend/Dockerfile
     envVars:
       - key: REACT_APP_API_URL
-        fromService:
-          name: sp-backend
-          type: web
-          property: host
+        sync: false
       - key: REACT_APP_BOT_USERNAME
         sync: false
-    dependsOn:
-      - sp-backend
 
-  - type: web
-    name: sp-nginx
-    runtime: docker
-    dockerfile: ./nginx/Dockerfile  # Создайте Dockerfile для Nginx (см. ниже)
-    ports:
-      - 80
-      - 443
-    volumes:
-      - source: ./nginx.conf
-        target: /etc/nginx/nginx.conf
-      - source: ./backend/uploads
-        target: /var/www/uploads
-    dependsOn:
-      - sp-frontend
-      - sp-backend
+databases:
+  - name: smart-practice-db
+    plan: free
+    postgresMajorVersion: 15

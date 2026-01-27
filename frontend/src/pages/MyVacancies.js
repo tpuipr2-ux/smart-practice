@@ -94,6 +94,7 @@ const ApplicationsCount = styled.div`
 const ButtonGroup = styled.div`
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 `;
 
 const Button = styled.button`
@@ -134,6 +135,15 @@ const ArchiveButton = styled(Button)`
   }
 `;
 
+const ViewButton = styled(Button)`
+  background-color: #34C759;
+  color: white;
+
+  &:hover {
+    background-color: #28A745;
+  }
+`;
+
 const EmptyState = styled.div`
   text-align: center;
   padding: 60px 20px;
@@ -167,6 +177,10 @@ const MyVacancies = () => {
 
   const handleEdit = (vacancyId) => {
     navigate(`/vacancies/edit/${vacancyId}`);
+  };
+
+  const handleViewApplications = (vacancyId) => {
+    navigate(`/vacancies/${vacancyId}/applications`);
   };
 
   const handleRequestExport = async (vacancyId) => {
@@ -236,9 +250,14 @@ const MyVacancies = () => {
             </ApplicationsCount>
             
             <ButtonGroup>
+              <ViewButton onClick={() => handleViewApplications(vacancy.id)}>
+                👁 Отклики ({vacancy.application_count || 0})
+              </ViewButton>
               <PrimaryButton onClick={() => handleEdit(vacancy.id)}>
                 Редактировать
               </PrimaryButton>
+            </ButtonGroup>
+            <ButtonGroup style={{ marginTop: '8px' }}>
               <SecondaryButton 
                 onClick={() => handleRequestExport(vacancy.id)}
                 disabled={vacancy.export_requested}
