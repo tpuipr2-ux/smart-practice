@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: sp-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: smart_practice
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - sp-network
+
+  backend:
+    build: ./backend
+    container_name: sp-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: smart_practice
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      BOT_TOKEN: ${BOT_TOKEN}
+      ADMIN_TG_ID: ${ADMIN_TG_ID}
+      WEB_APP_URL: ${WEB_APP_URL}
+      PORT: 3001
+    volumes:
+      - ./backend/uploads:/app/uploads
+    ports:
+      - "3001:3001"
+    depends_on:
+      - postgres
+    networks:
+      - sp-network
+
+  frontend:
+    build: ./frontend
+    container_name: sp-frontend
+    restart: unless-stopped
+    environment:
+      REACT_APP_API_URL: ${REACT_APP_API_URL}
+      REACT_APP_BOT_USERNAME: ${REACT_APP_BOT_USERNAME}
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - sp-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: sp-nginx
+    restart: unless-stopped
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./backend/uploads:/var/www/uploads
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - sp-network
+
+volumes:
+  postgres_data:
+
+networks:
+  sp-network:
+    driver: bridge
