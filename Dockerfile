@@ -1,5 +1,4 @@
-# Build stage
-FROM node:18-alpine as build
+FROM node:18-alpine
 
 WORKDIR /app
 
@@ -7,28 +6,16 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm install
+RUN npm install --production
 
 # Copy source code
 COPY . .
 
-# Build the app
-RUN npm run build
-
-# Production stage
-FROM nginx:alpine
-
-# Copy built files from build stage
-COPY --from=build /app/build /usr/share/nginx/html
-
-# Copy nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-# Update nginx config to use Render's PORT
-RUN sed -i 's/listen 80;/listen 10000;/g' /etc/nginx/conf.d/default.conf
+# Create uploads directory
+RUN mkdir -p /app/uploads/logos /app/uploads/headers
 
 # Expose port (Render uses PORT env var)
 EXPOSE 10000
 
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Start the application
+CMD ["node", "src/index.js"]
