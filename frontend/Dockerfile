@@ -12,7 +12,15 @@ RUN npm install
 # Copy source code
 COPY . .
 
+# Replace placeholder API URL with environment variable during build
+RUN sed -i 's|http://localhost:3001/api|${REACT_APP_API_URL}|g' src/App.js || true
+RUN sed -i 's|http://localhost:3001/api|${REACT_APP_API_URL}|g' src/pages/ExportRequests.js || true
+
 # Build the app
+ARG REACT_APP_API_URL
+ARG REACT_APP_BOT_USERNAME
+ENV REACT_APP_API_URL=$REACT_APP_API_URL
+ENV REACT_APP_BOT_USERNAME=$REACT_APP_BOT_USERNAME
 RUN npm run build
 
 # Production stage
@@ -24,11 +32,8 @@ COPY --from=build /app/build /usr/share/nginx/html
 # Copy nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Update nginx config to use Render's PORT
-RUN sed -i 's/listen 80;/listen 10000;/g' /etc/nginx/conf.d/default.conf
-
-# Expose port (Render uses PORT env var)
-EXPOSE 10000
+# Expose port (using dynamic port from environment)
+EXPOSE $PORT
 
 # Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["sh", "-c", "envsubst '$PORT' < /etc/nginx/conf.d/default.conf > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]

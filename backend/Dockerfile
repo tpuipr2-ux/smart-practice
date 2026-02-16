@@ -14,8 +14,8 @@ COPY . .
 # Create uploads directory
 RUN mkdir -p /app/uploads/logos /app/uploads/headers
 
-# Expose port (Render uses PORT env var)
-EXPOSE 10000
+# Expose port (using dynamic port from environment)
+EXPOSE $PORT
 
 # Start the application
 CMD ["node", "src/index.js"]
