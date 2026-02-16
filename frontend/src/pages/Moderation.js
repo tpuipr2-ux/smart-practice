@@ -129,6 +129,15 @@ const RejectButton = styled(Button)`
   }
 `;
 
+const SecondaryButton = styled(Button)`
+  background-color: #E5E5EA;
+  color: #1C1C1E;
+
+  &:hover {
+    background-color: #D1D1D6;
+  }
+`;
+
 const EditButton = styled(Button)`
   background-color: #007AFF;
   color: white;
