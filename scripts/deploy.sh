@@ -6,6 +6,8 @@ set -e  # Exit on any error
 
 echo "Starting deployment of Smart Practice application..."
 
+COMPOSE_CMD=""
+
 # Check if we're running on Render
 if [ "$RENDER" = "true" ]; then
     echo "Running on Render platform"
@@ -28,21 +30,23 @@ else
         exit 1
     fi
     
-    # Check if docker-compose is installed
-    if ! command -v docker-compose &> /dev/null; then
-        if ! command -v docker compose &> /dev/null; then
-            echo "ERROR: docker-compose is not installed"
-            exit 1
-        fi
+    # Pick available compose command
+    if command -v docker-compose &> /dev/null; then
+        COMPOSE_CMD="docker-compose"
+    elif docker compose version &> /dev/null; then
+        COMPOSE_CMD="docker compose"
+    else
+        echo "ERROR: docker-compose is not installed"
+        exit 1
     fi
+
+    # Stop existing stack first to avoid port conflicts and stale/orphan containers
+    echo "Stopping previous containers (if any)..."
+    $COMPOSE_CMD down --remove-orphans || true
     
     # Build and start the services
     echo "Building and starting Docker containers..."
-    if command -v docker-compose &> /dev/null; then
-        docker-compose up --build -d
-    else
-        docker compose up --build -d
-    fi
+    $COMPOSE_CMD up --build -d --remove-orphans
     
     echo "Application deployed successfully!"
     echo "Frontend: http://localhost:3000"
