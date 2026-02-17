@@ -1,51 +1,82 @@
 #!/bin/bash
-
-# Deployment script for Smart Practice application
-
-set -e  # Exit on any error
+set -e
 
 echo "Starting deployment of Smart Practice application..."
 
-# Check if we're running on Render
-if [ "$RENDER" = "true" ]; then
-    echo "Running on Render platform"
-    
-    # Render sets the PORT environment variable
-    if [ -z "$PORT" ]; then
-        echo "ERROR: PORT environment variable not set by Render"
-        exit 1
-    fi
-    
-    # For Render, we just need to start our services
-    echo "Deployment completed successfully on Render!"
-    exit 0
-else
-    echo "Running in local Docker environment"
-    
-    # Check if docker is installed
-    if ! command -v docker &> /dev/null; then
-        echo "ERROR: Docker is not installed"
-        exit 1
-    fi
-    
-    # Check if docker-compose is installed
-    if ! command -v docker-compose &> /dev/null; then
-        if ! command -v docker compose &> /dev/null; then
-            echo "ERROR: docker-compose is not installed"
-            exit 1
-        fi
-    fi
-    
-    # Build and start the services
-    echo "Building and starting Docker containers..."
-    if command -v docker-compose &> /dev/null; then
-        docker-compose up --build -d
-    else
-        docker compose up --build -d
-    fi
-    
-    echo "Application deployed successfully!"
-    echo "Frontend: http://localhost:3000"
-    echo "Backend: http://localhost:3001"
-    echo "Nginx: http://localhost:80"
+if [ ! -f .env ]; then
+  if [ -f .env.example ]; then
+    cp .env.example .env
+    echo "Created .env from .env.example. Fill required variables and run again."
+    exit 1
+  else
+    echo "ERROR: .env file is missing"
+    exit 1
+  fi
 fi
+
+set -a
+source .env
+set +a
+
+if command -v docker-compose >/dev/null 2>&1; then
+  COMPOSE_CMD="docker-compose"
+elif docker compose version >/dev/null 2>&1; then
+  COMPOSE_CMD="docker compose"
+else
+  echo "ERROR: docker compose is not installed"
+  exit 1
+fi
+
+for var in DOMAIN WEB_APP_URL REACT_APP_API_URL BOT_TOKEN REACT_APP_BOT_USERNAME; do
+  if [ -z "${!var}" ]; then
+    echo "ERROR: $var is empty in .env"
+    exit 1
+  fi
+done
+
+mkdir -p certbot/conf certbot/www
+
+echo "Stopping previous containers (if any)..."
+$COMPOSE_CMD down --remove-orphans || true
+
+issue_certificate() {
+  if [ -z "$LETSENCRYPT_EMAIL" ]; then
+    return 1
+  fi
+
+  echo "Issuing Let's Encrypt certificate for $DOMAIN ..."
+  docker run --rm -p 80:80 \
+    -v "$(pwd)/certbot/conf:/etc/letsencrypt" \
+    -v "$(pwd)/certbot/www:/var/www/certbot" \
+    certbot/certbot:latest certonly --standalone \
+    --non-interactive --agree-tos --no-eff-email \
+    --email "$LETSENCRYPT_EMAIL" -d "$DOMAIN"
+}
+
+if [ ! -f "certbot/conf/live/$DOMAIN/fullchain.pem" ] || [ ! -f "certbot/conf/live/$DOMAIN/privkey.pem" ]; then
+  echo "No existing certificate for $DOMAIN"
+  if ! issue_certificate; then
+    echo "WARNING: Let's Encrypt not configured. Generating temporary self-signed certificate..."
+    mkdir -p "certbot/conf/live/$DOMAIN"
+    openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
+      -keyout "certbot/conf/live/$DOMAIN/privkey.pem" \
+      -out "certbot/conf/live/$DOMAIN/fullchain.pem" \
+      -subj "/CN=$DOMAIN"
+  fi
+fi
+
+echo "Building and starting Docker containers..."
+$COMPOSE_CMD up --build -d --remove-orphans
+
+if [ -n "$BOT_TOKEN" ] && [ -n "$WEB_APP_URL" ]; then
+  echo "Configuring Telegram webhook and menu button..."
+  curl -fsS -X POST "https://api.telegram.org/bot${BOT_TOKEN}/setWebhook" \
+    -d "url=${WEB_APP_URL}/bot${BOT_TOKEN}" >/dev/null || true
+
+  curl -fsS -X POST "https://api.telegram.org/bot${BOT_TOKEN}/setChatMenuButton" \
+    -H "Content-Type: application/json" \
+    -d "{\"menu_button\":{\"type\":\"web_app\",\"text\":\"Open Smart Practice\",\"web_app\":{\"url\":\"${WEB_APP_URL}\"}}}" >/dev/null || true
+fi
+
+echo "Deployment completed."
+echo "Public URL: https://$DOMAIN"
