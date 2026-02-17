@@ -72,6 +72,8 @@ BOT_USERNAME=your_bot_username
 WEB_APP_URL=https://your-domain.com
 REACT_APP_API_URL=https://your-domain.com/api
 REACT_APP_BOT_USERNAME=your_bot_username
+DOMAIN=your-domain.com
+LETSENCRYPT_EMAIL=admin@your-domain.com
 
 # Admin Telegram ID (ID администратора)
 ADMIN_TG_ID=123476570
@@ -87,7 +89,7 @@ DB_PASSWORD=postgres
 ### 3. Запустите приложение
 
 ```bash
-docker-compose up -d
+./scripts/deploy.sh
 ```
 
 ### 4. Настройте Telegram Bot
@@ -132,13 +134,15 @@ nano .env
 
 3. **Запустите контейнеры**
 ```bash
-docker-compose up -d
+./scripts/deploy.sh
 ```
 
 4. **Проверьте статус**
 ```bash
 docker-compose ps
 docker-compose logs -f
+
+> Важно: для Telegram Mini App укажите в `.env` именно HTTPS-домен в `WEB_APP_URL` (например `https://praktika.ond.tpu.ru`).
 ```
 
 5. **Настройте nginx (если используете отдельный сервер)**

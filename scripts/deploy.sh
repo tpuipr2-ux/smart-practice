@@ -11,19 +11,19 @@ COMPOSE_CMD=""
 # Check if we're running on Render
 if [ "$RENDER" = "true" ]; then
     echo "Running on Render platform"
-    
+
     # Render sets the PORT environment variable
     if [ -z "$PORT" ]; then
         echo "ERROR: PORT environment variable not set by Render"
         exit 1
     fi
-    
+
     # For Render, we just need to start our services
     echo "Deployment completed successfully on Render!"
     exit 0
 else
     echo "Running in local Docker environment"
-    
+
     # Check if docker is installed
     if ! command -v docker &> /dev/null; then
         echo "ERROR: Docker is not installed"
