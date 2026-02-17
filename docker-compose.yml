@@ -42,7 +42,11 @@ services:
       - sp-network
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        - REACT_APP_API_URL=${REACT_APP_API_URL}
+        - REACT_APP_BOT_USERNAME=${REACT_APP_BOT_USERNAME}
     container_name: sp-frontend
     restart: unless-stopped
     environment:
